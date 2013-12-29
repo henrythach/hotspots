@@ -1,0 +1,6 @@
+development:
+  sessions:
+    default:
+      database: hotspots
+      hosts:
+        - localhost:27017
