@@ -10,4 +10,6 @@ html(lang="en")
     script(src="js/hotspots.js")
   body
     #map-canvas
-    script(src="/bower_components/jquery/jquery.js")
+    if env == 'development'
+        script(src="http://localhost:3355/livereload.js")
+    script(src="/bower_components/jquery/jquery.min.js")

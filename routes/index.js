@@ -12,7 +12,8 @@
          */
         app.get('/', function (req, res) {
             res.render('index', {
-                title: 'Hotspots Mapper'
+                title: 'Hotspots Mapper',
+                env: app.get('env')
             });
         });
 
