@@ -1,4 +1,4 @@
-/*global console,require*/
+/*global console,require,process*/
 (function () {
     'use strict';
 
@@ -6,9 +6,11 @@
 
         http = require('http'),
 
-        Q = require('q');
+        Q = require('q'),
 
-    pg.connect('postgres://localhost/hotspots', function (err, client, done) {
+        connectionString = process.env.DATABASE_URL || 'postgres://localhost/hotspots';
+
+    pg.connect(connectionString, function (err, client) {
         if (err) {
             return console.error('error connecting', err);
         }
@@ -38,7 +40,7 @@
                             var obj = JSON.parse(data),
                                 location = obj.results[0].geometry.location;
 
-                            client.query('UPDATE incident SET lat = $1, lng = $2 WHERE id = $3', [location.lat, location.lng, incident.id], function (e, r) {
+                            client.query('UPDATE incident SET lat = $1, lng = $2 WHERE id = $3', [location.lat, location.lng, incident.id], function (e) {
                                 if (e) {
                                     return console.err('error updating incident #' + incident.id, err);
                                 }
