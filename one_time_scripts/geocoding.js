@@ -1,66 +1,60 @@
-/**
- * Node.js script that looks up for any incidents that do
- * not have any latitude or longitude.
- *
- * Usage: $ node geocoding.js
- *
- */
+/*global console,require*/
+(function () {
+    'use strict';
 
-var mongoose = require('mongoose'),
-    http = require('http'),
-    Q = require('q');
+    var pg = require('pg'),
 
-mongoose.connect('mongodb://localhost/hotspots');
+        http = require('http'),
 
-var Incident = mongoose.model('Incident', {
-    id: Number,
-    date: Date,
-    type: String,
-    location: String,
-    recorded: String,
-    callTaker: String,
-    disposition: String,
-    officer: String,
-    notes: String,
-    latitude: Number,
-    longitude: Number
-});
+        Q = require('q');
 
-Incident.where('latitude').exists(false).exec(function(err, incidents) {
-    if (!err) {
-        var a = Q.delay(1);
-        incidents.forEach(function(incident, idx) {
-            a = a.then(function() {
-                var addressToUse = incident.location.replace(/\([\w ]+\)/, '') + 'QUINCY MA';
-                console.log("CALLING: " + 'http://maps.googleapis.com/maps/api/geocode/json?sensor=false&address=' + addressToUse);
-                http.get('http://maps.googleapis.com/maps/api/geocode/json?sensor=false&address=' + addressToUse, function(res) {
-                    var data = '';
+    pg.connect('postgres://localhost/hotspots', function (err, client, done) {
+        if (err) {
+            return console.error('error connecting', err);
+        }
 
-                    res.on('data', function(chunk) {
-                        data += chunk;
-                    });
+        client.query('SELECT * FROM incident WHERE lat IS null', function (err, result) {
+            if (err) {
+                return console.error('error running query', err);
+            }
 
-                    res.on('end', function() {
-                        var obj = JSON.parse(data);
-                        console.log(obj.results[0].geometry.location.lat);
-                        incident.latitude = obj.results[0].geometry.location.lat;
-                        incident.longitude = obj.results[0].geometry.location.lng;
-                        incident.save(function (err) {
-                            if (!err) {
-                                console.log("Saved incident #: " + incident.id);
-                            } else {
-                                console.log("Uh ohs, incident #: " + incident.id);
-                            }
+            var queue = Q.delay(1);
+
+            result.rows.forEach(function (incident) {
+                var addressToUse;
+
+                // append 'QUINCY MA' to the end of location to get a better geocode
+                addressToUse = incident.location.replace(/\([\w ]+\)/, '') + 'QUINCY MA';
+
+                queue = queue.then(function () {
+                    http.get('http://maps.googleapis.com/maps/api/geocode/json?sensor=false&address=' + addressToUse, function (res) {
+                        var data = '';
+
+                        res.on('data', function (chunk) {
+                            data += chunk;
                         });
-                    })
-                });
 
-            }).delay(3000); // delay so google won't hate me
+                        res.on('end', function () {
+                            var obj = JSON.parse(data),
+                                location = obj.results[0].geometry.location;
+
+                            client.query('UPDATE incident SET lat = $1, lng = $2 WHERE id = $3', [location.lat, location.lng, incident.id], function (e, r) {
+                                if (e) {
+                                    return console.err('error updating incident #' + incident.id, err);
+                                }
+                                console.log('updated incident #' + incident.id);
+                            });
+
+                        });
+
+                    });
+                }).delay(3000); // delay so google won't hate me
+            });
+
+            queue = queue.done(function () {
+                client.end();
+            });
         });
-        a = a.done(function() {
-            process.exit(0);
-        });
-    } else {
-        console.log("Err!")
-    }
-});
+    });
+
+}());
