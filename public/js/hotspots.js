@@ -21,7 +21,7 @@ function initialize() {
         incidents.forEach(function(incident, idx) {
             var marker = new google.maps.Marker({
                 map: map,
-                position: new google.maps.LatLng(incident.latitude, incident.longitude)
+                position: new google.maps.LatLng(incident.lat, incident.lng)
             });
 
             var contentInfo = "<div>" +
