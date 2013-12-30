@@ -21,12 +21,17 @@
          */
         app.get('/incidents.json', function (req, res) {
             pg.connect(connectionString, function (err, client, done) {
+
+                if (err) {
+                    return console.error('problems connecting to server', err);
+                }
+
                 client.query('SELECT * FROM incident', function (err, result) {
                     done();
                     if (!err) {
                         return res.send(result.rows);
                     }
-                    return console.error(err);
+                    return console.error('problems query results', err);
                 });
             });
         });
